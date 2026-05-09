@@ -9,7 +9,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 _log_lock= threading.Lock()
 
 def alertar_windows(site, erro):
-    toast= Notification(app_id="MonitorApp", title="Site Off!", msg=f"Erro: {erro}", duration="short")
+    toast= Notification(app_id="MonitorApp", title="Site Off!", msg=f"{site}\nErro: {erro}", duration="short")
     toast.set_audio(audio.Default, loop=False)
     toast.show()
 
