@@ -1,7 +1,11 @@
 import customtkinter as ctk
-from database_module.database import adicionar_site_db, carregar_sites
+import urllib.parse
+import tkinter.messagebox as mb
+from database_module.database import adicionar_site_db, carregar_sites, remover_site_db
 from logs_module.logs import get_logs, gerar_novo_log
 from core.worker import start_worker
+from monitor_module.status import Status
+from core.config import UI_REFRESH_MS
 
 class MonitorApp(ctk.CTk):
     def __init__(self):
@@ -29,15 +33,14 @@ class MonitorApp(ctk.CTk):
         if self.aba_atual == "dash":
             for s in carregar_sites():
                 if s["url"] in self.site_labels:
-                    cor= "green" if s["status"] == "Online" else "yellow" if s["status"] == "Conectando" else "red"
+                    cor= "green" if s["status"] == Status.ONLINE else "yellow" if s["status"] == Status.CONECTANDO else "red"
                     self.site_labels[s["url"]].configure(text=s["status"], text_color=cor)
-        self.after(1000, self.loop_refresh)
+        self.after(UI_REFRESH_MS, self.loop_refresh)
 
     def show_dash(self):
         self.aba_atual= "dash"; self.limpar()
-        from database_module.database import remover_site_db
         for s in carregar_sites():
-            cor= "green" if s["status"] == "Online" else "yellow" if s["status"] == "Conectando" else "red"
+            cor= "green" if s["status"] == Status.ONLINE else "yellow" if s["status"] == Status.CONECTANDO else "red"
             f= ctk.CTkFrame(self.main_frame); f.pack(fill="x", padx=10, pady=5)
             ctk.CTkLabel(f, text=s['url']).pack(side="left", padx=10)
             ctk.CTkButton(f, text="X", width=30, fg_color="red", command=lambda u=s["url"]: [remover_site_db(u), self.show_dash()]).pack(side="right", padx=5)
@@ -51,8 +54,18 @@ class MonitorApp(ctk.CTk):
     def show_add(self):
         self.aba_atual= "add"; self.limpar()
         url_e= ctk.CTkEntry(self.main_frame, placeholder_text="URL", width=300); url_e.pack(pady=5)
-        time_e= ctk.CTkEntry(self.main_frame, placeholder_text="Segundos", width=300); time_e.pack(pady=5)
-        ctk.CTkButton(self.main_frame, text="Salvar", command=lambda: [adicionar_site_db(url_e.get(), time_e.get()), self.show_dash()]).pack(pady=20)
+        time_e= ctk.CTkEntry(self.main_frame, placeholder_text="Intervalo (s)", width=300); time_e.pack(pady=5)
+        timeout_e= ctk.CTkEntry(self.main_frame, placeholder_text="Timeout (s)", width=300); timeout_e.pack(pady=5)
+        def salvar():
+            url= url_e.get().strip()
+            parsed= urllib.parse.urlparse(url)
+            if parsed.scheme not in ("http", "https") or not parsed.netloc:
+                mb.showerror("URL inválida", "Informe uma URL válida com http:// ou https://")
+                return
+            adicionar_site_db(url, time_e.get(), timeout_e.get())
+            self.show_dash()
+
+        ctk.CTkButton(self.main_frame, text="Salvar", command=salvar).pack(pady=20)
 
     def show_logs(self):
         self.aba_atual= "logs"; self.limpar()
